@@ -106,7 +106,7 @@ jobs:
             echo "========================================"
 
             aws sts get-caller-identity
-
+            rm -rf .terraform
             terraform init -reconfigure \
               -backend-config="backend_conf/backend-${ENVIRONMENT}.conf"
 
