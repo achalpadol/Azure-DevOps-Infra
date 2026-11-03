@@ -1,0 +1,246 @@
+
+trigger:
+- main
+
+pool:trigger:
+
+* main
+
+# PIPELINE PARAMETERS
+parameters:
+* name: Environment
+  displayName: Select Environment
+  type: string
+  default: dev
+  values:
+  * dev
+  * qa
+  * uat
+  * prod
+
+* name: Terraform_Action
+  displayName: Select Terraform Action
+  type: string
+  default: plan
+  values:
+  * init
+  * plan
+  * apply
+  * destroy
+
+* name: Auto_Approve
+  displayName: Automatically Approve Terraform Apply
+  type: boolean
+  default: false
+
+# AGENT POOL
+pool:
+name: WSL-Agent-Pool
+
+# VARIABLES
+variables:
+AWS_REGION: ap-south-1
+AWS_DEFAULT_REGION: ap-south-1
+
+# JOBS
+jobs:
+# MANUAL APPROVAL JOB
+* job: Terraform_Approval
+  displayName: Terraform Manual Approval
+  pool: server
+  condition: and(
+  succeeded(),
+  eq('${{ parameters.Terraform_Action }}', 'apply'),
+  eq(${{ parameters.Auto_Approve }}, false)
+  )
+
+  timeoutInMinutes: 60
+
+  steps:
+
+  * task: ManualValidation@1
+
+    displayName: Approve Terraform Apply
+
+    timeoutInMinutes: 60
+
+    inputs:
+    notifyUsers: ''
+
+    instructions: |
+    Terraform Apply requires approval.
+
+    ```
+    Environment: ${{ parameters.Environment }}
+
+    Please review the requested infrastructure changes
+    before approving this operation.
+    ```
+
+    onTimeout: reject
+
+# TERRAFORM EXECUTION JOB
+* job: Terraform_Execution
+  displayName: Terraform Infrastructure Execution
+  dependsOn:
+  * Terraform_Approval
+  condition: or(
+  eq(dependencies.Terraform_Approval.result, 'Succeeded'),
+  eq(dependencies.Terraform_Approval.result, 'Skipped')
+  )
+
+  workspace:
+  clean: all
+
+  steps:
+  * checkout: self
+
+# TERRAFORM INIT
+* task: AWSShellScript@1
+  displayName: Terraform Init
+  inputs:
+  awsCredentials: aws
+  regionName: ap-south-1
+  scriptType: inline
+  inlineScript: |
+
+  ```
+  set -e
+
+  echo "========================================"
+  echo "Terraform Init"
+  echo "Environment: $ENVIRONMENT"
+  echo "========================================"
+
+  aws sts get-caller-identity
+
+  terraform init -reconfigure \
+    -backend-config="backend_conf/backend-${ENVIRONMENT}.conf"
+  ```
+
+  env:
+  ENVIRONMENT: ${{ parameters.Environment }}
+
+  workingDirectory: $(System.DefaultWorkingDirectory)
+
+# TERRAFORM VALIDATE
+* task: AWSShellScript@1
+  displayName: Terraform Validate
+  condition: or(
+  eq('${{ parameters.Terraform_Action }}', 'plan'),
+  eq('${{ parameters.Terraform_Action }}', 'apply')
+  )
+  inputs:
+  awsCredentials: aws
+  regionName: ap-south-1
+  scriptType: inline
+  inlineScript: |
+
+  ```
+  set -e
+
+  echo "========================================"
+  echo "Terraform Validate"
+  echo "Environment: $ENVIRONMENT"
+  echo "========================================"
+
+  terraform validate
+  ```
+
+  env:
+  ENVIRONMENT: ${{ parameters.Environment }}
+
+  workingDirectory: $(System.DefaultWorkingDirectory)
+
+# TERRAFORM PLAN
+* task: AWSShellScript@1
+  displayName: Terraform Plan
+  condition: eq('${{ parameters.Terraform_Action }}', 'plan')
+  inputs:
+  awsCredentials: aws
+  regionName: ap-south-1
+  scriptType: inline
+  inlineScript: |
+
+  ```
+  set -e
+
+  echo "========================================"
+  echo "Terraform Plan"
+  echo "Environment: $ENVIRONMENT"
+  echo "========================================"
+
+  terraform plan \
+    -var-file="environments/${ENVIRONMENT}.tfvars"
+  ```
+
+  env:
+  ENVIRONMENT: ${{ parameters.Environment }}
+  workingDirectory: $(System.DefaultWorkingDirectory)
+
+# TERRAFORM APPLY
+* task: AWSShellScript@1
+  displayName: Terraform Apply
+  condition: eq('${{ parameters.Terraform_Action }}', 'apply')
+  inputs:
+  awsCredentials: aws
+  regionName: ap-south-1
+  scriptType: inline
+
+  inlineScript: |
+
+  ```
+  set -e
+
+  echo "========================================"
+  echo "Terraform Apply"
+  echo "Environment: $ENVIRONMENT"
+  echo "========================================"
+
+  terraform apply \
+    -var-file="environments/${ENVIRONMENT}.tfvars" \
+    -auto-approve
+  ```
+
+  env:
+  ENVIRONMENT: ${{ parameters.Environment }}
+  workingDirectory: $(System.DefaultWorkingDirectory)
+
+# TERRAFORM DESTROY
+* task: AWSShellScript@1
+  displayName: Terraform Destroy
+  condition: eq('${{ parameters.Terraform_Action }}', 'destroy')
+  inputs:
+  awsCredentials: aws
+  regionName: ap-south-1
+  scriptType: inline
+  inlineScript: |
+
+  ```
+  set -e
+
+  echo "========================================"
+  echo "Terraform Destroy"
+  echo "Environment: $ENVIRONMENT"
+  echo "========================================"
+
+  terraform destroy \
+    -var-file="environments/${ENVIRONMENT}.tfvars" \
+    -auto-approve
+  ```
+
+  env:
+  ENVIRONMENT: ${{ parameters.Environment }}
+
+  workingDirectory: $(System.DefaultWorkingDirectory)
+
+  vmImage: ubuntu-latest
+
+steps:
+- script: echo Hello, world!
+  displayName: 'Run a one-line script'
+
+- script: |
+    echo Add other tasks to build, test, and deploy your project.
+    echo See https://aka.ms/yaml
+  displayName: 'Run a multi-line script'
