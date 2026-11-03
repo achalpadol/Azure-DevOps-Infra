@@ -112,8 +112,7 @@ jobs:
 
         env:
           ENVIRONMENT: ${{ parameters.Environment }}
-
-        workingDirectory: $(System.DefaultWorkingDirectory)
+          workingDirectory: $(System.DefaultWorkingDirectory)
 
       # TERRAFORM VALIDATE
       - task: AWSShellScript@1
@@ -141,7 +140,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ parameters.Environment }}
 
-        workingDirectory: $(System.DefaultWorkingDirectory)
+          workingDirectory: $(System.DefaultWorkingDirectory)
 
       # TERRAFORM PLAN
       - task: AWSShellScript@1
@@ -167,7 +166,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ parameters.Environment }}
 
-        workingDirectory: $(System.DefaultWorkingDirectory)
+          workingDirectory: $(System.DefaultWorkingDirectory)
 
       # TERRAFORM APPLY
       - task: AWSShellScript@1
@@ -194,7 +193,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ parameters.Environment }}
 
-        workingDirectory: $(System.DefaultWorkingDirectory)
+          workingDirectory: $(System.DefaultWorkingDirectory)
 
       # TERRAFORM DESTROY
       - task: AWSShellScript@1
@@ -221,4 +220,4 @@ jobs:
         env:
           ENVIRONMENT: ${{ parameters.Environment }}
 
-        workingDirectory: $(System.DefaultWorkingDirectory)
+          workingDirectory: $(System.DefaultWorkingDirectory)
